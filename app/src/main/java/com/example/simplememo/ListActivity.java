@@ -1,6 +1,8 @@
 package com.example.simplememo;
 
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -15,14 +17,54 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class ListActivity extends AppCompatActivity {
+    // MemoOpenHelperクラスを定義
+    MemoOpenHelper helper = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
 
+        // データベースから値を取得する
+        if(helper == null){
+            helper = new MemoOpenHelper(ListActivity.this);
+        }
+        // メモリストデータを格納する変数
+        ArrayList<HashMap<String, String>> memoList = new ArrayList<>();
+        // データベースを取得する
+        SQLiteDatabase db = helper.getWritableDatabase();
+        try {
+            // rawQueryというSELECT専用メソッドを使用してデータを取得する
+            Cursor c = db.rawQuery("select uuid, body from MEMO_TABLE order by id", null);
+            // Cursorの先頭行があるかどうか確認
+            boolean next = c.moveToFirst();
+
+            // 取得した全ての行を取得
+            while (next) {
+                HashMap<String,String> data = new HashMap<>();
+                // 取得したカラムの順番(0から始まる)と型を指定してデータを取得する
+                String uuid = c.getString(0);
+                String body = c.getString(1);
+                if(body.length() > 10){
+                    // リストに表示するのは10文字まで
+                    body = body.substring(0, 11) + "...";
+                }
+                // 引数には、(名前,実際の値)という組合せで指定します　名前はSimpleAdapterの引数で使用します
+                data.put("body",body);
+                data.put("id",uuid);
+                memoList.add(data);
+                // 次の行が存在するか確認
+                next = c.moveToNext();
+            }
+        } finally {
+            // finallyは、tryの中で例外が発生した時でも必ず実行される
+            // dbを開いたら確実にclose
+            db.close();
+        }
+
         // ToDo:データベースから値を取得する
         // 仮のデータを作成
+        /*
         ArrayList<HashMap<String, String>> tmpList = new ArrayList<>();
         for(int i = 1; i <=  5; i++){
             HashMap<String,String> data = new HashMap<>();
@@ -31,11 +73,11 @@ public class ListActivity extends AppCompatActivity {
             data.put("id","sampleId"+i);
             tmpList.add(data);
         }
-
+        */
         // Adapter生成
         // ToDo:tmpListを正式なデータと入れ替える
         SimpleAdapter simpleAdapter = new SimpleAdapter(this,
-                tmpList, // 使用するデータ
+                memoList, // 使用するデータ
                 android.R.layout.simple_list_item_2, // 使用するレイアウト
                 new String[]{"body","id"}, // どの項目を
                 new int[]{android.R.id.text1, android.R.id.text2} // どのidの項目に入れるか
